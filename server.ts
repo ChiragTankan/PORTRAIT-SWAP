@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import crypto from "crypto";
 
 dotenv.config();
 
@@ -12,6 +13,37 @@ const PORT = 3000;
 // Set high limits for file upload support (base64 image size)
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+// In-memory store for local uploaded images to serve them on a public URL for ASI:One
+const uploadedImages = new Map<string, { buffer: Buffer; mimeType: string }>();
+
+// Helper to store base64 string as a temporary buffer and return unique identity
+function parseAndStoreBase64(base64Str: string): string {
+  let mimeType = "image/jpeg";
+  let base64Data = base64Str;
+  
+  const match = base64Str.match(/^data:(image\/\w+);base64,(.+)$/);
+  if (match) {
+    mimeType = match[1];
+    base64Data = match[2];
+  }
+  
+  const buffer = Buffer.from(base64Data, "base64");
+  const id = `img_${crypto.randomBytes(8).toString("hex")}`;
+  uploadedImages.set(id, { buffer, mimeType });
+  return id;
+}
+
+// Public API endpoint so ASI:One can download the user's face photo
+app.get("/uploads/:id", (req: express.Request, res: express.Response) => {
+  const { id } = req.params;
+  const image = uploadedImages.get(id);
+  if (!image) {
+    return res.status(404).send("Image not found");
+  }
+  res.setHeader("Content-Type", image.mimeType);
+  res.send(image.buffer);
+});
 
 // Initialize Gemini SDK with client agent header for tracking
 const ai = new GoogleGenAI({
@@ -112,8 +144,18 @@ app.post("/api/face-swap", async (req: express.Request, res: express.Response) =
       return res.status(400).json({ error: "ASI_ONE_API_KEY is missing. Please configure it in the Secrets panel." });
     }
 
-    const prompt = `Fuse the facial features of the uploaded person in the image with this template style: ${templatePrompt || "Cinematic Portrait Style"}`;
-    const outputResult = await callAsiOneImageEdit(userImageBase64, prompt);
+    // Convert local base64 upload into public asset URL so ASI:One can access it
+    const imageId = parseAndStoreBase64(userImageBase64);
+    const proto = req.headers["x-forwarded-proto"] || req.protocol;
+    const host = req.headers["x-forwarded-host"] || req.get("host");
+    const appUrl = (process.env.APP_URL || `${proto}://${host}`).replace(/\/$/, "");
+    const publicImageUrl = `${appUrl}/uploads/${imageId}`;
+
+    // Substitute face placeholder in premium descriptors to build custom prompt
+    const basePrompt = (templatePrompt || "Cinematic Portrait Style").replace(/\[YOUR FACE\]/gi, "the face of the subject in this image");
+    const enhancedPrompt = `${basePrompt}\nMake the changes look natural and seamless.\nMaintain good lighting and composition.`;
+
+    const outputResult = await callAsiOneImageEdit(publicImageUrl, enhancedPrompt);
     return res.json({
       success: true,
       imageUrl: outputResult,
@@ -143,8 +185,16 @@ app.post("/api/agent-customize", async (req: express.Request, res: express.Respo
       return res.status(400).json({ error: "ASI_ONE_API_KEY is missing. Please configure it in the Secrets panel." });
     }
 
-    const prompt = `Customize high-fidelity portrait using these exact instructions: ${customStylePrompt}`;
-    const outputResult = await callAsiOneImageEdit(userImageBase64, prompt);
+    // Convert local base64 upload into public asset URL so ASI:One can access it
+    const imageId = parseAndStoreBase64(userImageBase64);
+    const proto = req.headers["x-forwarded-proto"] || req.protocol;
+    const host = req.headers["x-forwarded-host"] || req.get("host");
+    const appUrl = (process.env.APP_URL || `${proto}://${host}`).replace(/\/$/, "");
+    const publicImageUrl = `${appUrl}/uploads/${imageId}`;
+
+    const enhancedPrompt = `${customStylePrompt}\nMake the changes look natural and seamless.\nMaintain good lighting and composition.`;
+
+    const outputResult = await callAsiOneImageEdit(publicImageUrl, enhancedPrompt);
     return res.json({
       success: true,
       imageUrl: outputResult,
