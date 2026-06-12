@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "Bookmark": {
+      "title": "Bookmark",
+      "description": "A bookmarked gallery item",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner of the bookmark"
+        },
+        "promptId": {
+          "type": "string",
+          "description": "The hardcoded gallery prompt ID or custom prompt ID"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        }
+      },
+      "required": ["userId", "promptId", "createdAt"]
+    },
+    "CustomPrompt": {
+      "title": "CustomPrompt",
+      "description": "User created custom face-swapping prompt details",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner of the custom prompt"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the prompt"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "Visual reference image URL"
+        },
+        "generationPrompt": {
+          "type": "string",
+          "description": "Face-swapping text prompt"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        }
+      },
+      "required": ["userId", "title", "imageUrl", "generationPrompt", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/bookmarks/{bookmarkId}": {
+      "schema": "Bookmark",
+      "description": "User specific bookmark list"
+    },
+    "/users/{userId}/custom_prompts/{promptId}": {
+      "schema": "CustomPrompt",
+      "description": "User specific custom prompts"
+    }
+  }
+}

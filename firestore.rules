@@ -1,0 +1,96 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net - Default Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Functions ---
+
+    // Validates if an ID is a safe string (prevents malformed injection and DoW attacks)
+    function isValidId(id) {
+       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Simple helpers for request state
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Bookmarks Collection Rules ---
+    // Path: /users/{userId}/bookmarks/{bookmarkId}
+    
+    function isValidBookmark(userId, bookmarkId, data) {
+      return data.keys().hasAll(['userId', 'promptId', 'createdAt'])
+        && data.keys().size() == 3
+        && data.userId == request.auth.uid
+        && data.userId == userId
+        && data.promptId is string
+        && data.promptId.size() <= 128
+        && data.createdAt == request.time;
+    }
+
+    match /users/{userId}/bookmarks/{bookmarkId} {
+      // Direct reads and listings are securely restricted only to the owner
+      allow read, delete: if isSignedIn() && userId == request.auth.uid;
+      
+      // Creating a bookmark triggers exact schema constraint and current auth matching
+      allow create: if isSignedIn()
+        && userId == request.auth.uid
+        && isValidId(bookmarkId)
+        && isValidBookmark(userId, bookmarkId, incoming());
+        
+      // Bookmarks cannot be updated (only created and deleted)
+      allow update: if false;
+    }
+
+    // --- Custom Prompts Collection Rules ---
+    // Path: /users/{userId}/custom_prompts/{promptId}
+
+    function isValidCustomPrompt(userId, promptId, data) {
+      return data.keys().hasAll(['userId', 'title', 'imageUrl', 'generationPrompt', 'createdAt'])
+        && data.keys().size() == 5
+        && data.userId == request.auth.uid
+        && data.userId == userId
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 128
+        && data.imageUrl is string
+        && data.imageUrl.size() <= 1000
+        && data.generationPrompt is string
+        && data.generationPrompt.size() >= 1
+        && data.generationPrompt.size() <= 2000
+        && data.createdAt == request.time;
+    }
+
+    match /users/{userId}/custom_prompts/{promptId} {
+      // Access strictly limited to creator
+      allow read, delete: if isSignedIn() && userId == request.auth.uid;
+      
+      // Only owner can create with safe schema checks
+      allow create: if isSignedIn()
+        && userId == request.auth.uid
+        && isValidId(promptId)
+        && isValidCustomPrompt(userId, promptId, incoming());
+
+      // Only owner can edit their custom configurations
+      allow update: if isSignedIn()
+        && userId == request.auth.uid
+        && isValidId(promptId)
+        && isValidCustomPrompt(userId, promptId, incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().userId == existing().userId;
+    }
+  }
+}

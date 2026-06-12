@@ -1,0 +1,6 @@
+{
+  "name": "Face Swap Prompt Gallery",
+  "description": "A premium, dark-themed cinematic gallery where you can swap faces into cinematic portrait styles using your own face photo.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
