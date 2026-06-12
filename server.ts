@@ -23,7 +23,83 @@ const ai = new GoogleGenAI({
   },
 });
 
-// Face swap API endpoint using Gemini model to perform image-to-image style composite
+// Integration status endpoint to see if API keys are configured correctly
+app.get("/api/integration-status", (req: express.Request, res: express.Response) => {
+  res.json({
+    asiOneActive: !!process.env.ASI_ONE_API_KEY,
+    geminiActive: !!process.env.GEMINI_API_KEY,
+  });
+});
+
+async function callAsiOneImageEdit(primaryImage: string, prompt: string): Promise<string> {
+  const apiKey = process.env.ASI_ONE_API_KEY;
+  if (!apiKey) {
+    throw new Error("ASI_ONE_API_KEY is not defined in the environment.");
+  }
+
+  const response = await fetch("https://api.asi1.ai/v1/image/edit", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      images: [primaryImage],
+      prompt: prompt,
+      guidance_scale: 1.5,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`ASI:One Face Swap API Error (${response.status}): ${errText}`);
+  }
+
+  const result: any = await response.json();
+  const imageUrlOrBase64 = result.url || (result.images && result.images[0]);
+  if (!imageUrlOrBase64) {
+    throw new Error("ASI:One API response didn't return an image URL or base64.");
+  }
+  return imageUrlOrBase64;
+}
+
+async function callAsiOneImageGenerate(prompt: string): Promise<string> {
+  const apiKey = process.env.ASI_ONE_API_KEY;
+  if (!apiKey) {
+    throw new Error("ASI_ONE_API_KEY is not defined in the environment.");
+  }
+
+  const response = await fetch("https://api.asi1.ai/v1/image/generate", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt: prompt,
+      size: "1024x1024",
+      model: "asi1-mini",
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`ASI:One Generation API Error (${response.status}): ${errText}`);
+  }
+
+  const result: any = await response.json();
+  const imageResult = (result.images && result.images[0]) || result.url;
+  if (!imageResult) {
+    throw new Error("ASI:One API response didn't return an image base64 format or URL.");
+  }
+
+  if (imageResult.startsWith("http") || imageResult.startsWith("data:")) {
+    return imageResult;
+  }
+  return `data:image/png;base64,${imageResult}`;
+}
+
+// Face swap API endpoint using ASI:One API to perform image-to-image style composite
 app.post("/api/face-swap", async (req: express.Request, res: express.Response) => {
   try {
     const { userImageBase64, userMimeType, templateImageUrl, templatePrompt } = req.body;
@@ -32,107 +108,52 @@ app.post("/api/face-swap", async (req: express.Request, res: express.Response) =
       return res.status(400).json({ error: "Please upload your face photo first." });
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: "Gemini API key is missing. Please configure GEMINI_API_KEY in the Secrets panel." });
+    if (!process.env.ASI_ONE_API_KEY) {
+      return res.status(400).json({ error: "ASI_ONE_API_KEY is missing. Please configure it in the Secrets panel." });
     }
 
-    // Clean base64 header
-    const cleanBase64 = userImageBase64.replace(/^data:image\/\w+;base64,/, "");
-    const mime = userMimeType || "image/jpeg";
-
-    // Download the template image on the server to pass it as base64 inlineData to Gemini
-    let templateBase64 = "";
-    let templateMime = "image/jpeg";
-    try {
-      const response = await fetch(templateImageUrl);
-      if (response.ok) {
-        const arrayBuffer = await response.arrayBuffer();
-        templateBase64 = Buffer.from(arrayBuffer).toString("base64");
-        const contentType = response.headers.get("content-type");
-        if (contentType) {
-          templateMime = contentType;
-        }
-      } else {
-        console.warn(`Template image download failed with status ${response.status}`);
-      }
-    } catch (e) {
-      console.error("Failed to fetch template image from Unsplash:", e);
-    }
-
-    // Build the parts for the Multimodal edit/generate call
-    const contentsParts: any[] = [];
-
-    // Part 1: User uploaded portrait (Face source)
-    contentsParts.push({
-      inlineData: {
-        data: cleanBase64,
-        mimeType: mime,
-      },
-    });
-
-    // Part 2: Template portrait (Aesthetic target)
-    if (templateBase64) {
-      contentsParts.push({
-        inlineData: {
-          data: templateBase64,
-          mimeType: templateMime,
-        },
-      });
-    }
-
-    // Part 3: Specialized AI swap prompt
-    const systemPromptText = `You are a professional cinematic portrait director and portrait lighting visual artist.
-You have been given two images:
-1. First image: The user's face photo (which provides facial contours, eye shape, nose structure, smile/lips, details, and facial features).
-2. Second image: The desired artistic/cinematic aesthetic style template (which provides beautiful portrait lighting, specific clothes/goggles/armor, perfect studio lighting angles, a tailored focus backdrop, and resolution format).
-
-Your single, critical goal is to take the face from the FIRST image and seamlessly transplant/blend/graft it into the SECOND image in place of the second image's face.
-Ensure gorgeous blending so it is perfectly realistic. The skin tone, facial shadows, perspective angle, head orientation, and eye contact must dynamically blend with the second image's high-fashion or sci-fi ambient lighting.
-The hair, pose, apparel, accessories (like glasses, hoods, or headphones), and deep cinematic textures of the second image must remain 100% untouched.
-${templatePrompt ? `The template style description is: "${templatePrompt}"` : ""}
-
-Return ONLY the final processed face-swapped cinematic portrait image. Do not add any text, boundaries, borders, comparison side-by-sides, or formatting blocks.`;
-
-    contentsParts.push({
-      text: systemPromptText,
-    });
-
-    // Invoke Gemini 2.5 general image editing model to yield high-quality blended portrait
-    const aiResponse = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
-      contents: {
-        parts: contentsParts,
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "3:4",
-        }
-      }
-    });
-
-    let outputBase64 = "";
-    if (aiResponse?.candidates?.[0]?.content?.parts) {
-      for (const part of aiResponse.candidates[0].content.parts) {
-        if (part.inlineData?.data) {
-          outputBase64 = part.inlineData.data;
-          break;
-        }
-      }
-    }
-
-    if (!outputBase64) {
-      console.warn("Failed to retrieve base64 data from Gemini response:", JSON.stringify(aiResponse));
-      return res.status(500).json({ error: "The AI did not return a valid swapped image. Please try again with a clearer face photo." });
-    }
-
-    res.json({
+    const prompt = `Fuse the facial features of the uploaded person in the image with this template style: ${templatePrompt || "Cinematic Portrait Style"}`;
+    const outputResult = await callAsiOneImageEdit(userImageBase64, prompt);
+    return res.json({
       success: true,
-      imageUrl: `data:image/png;base64,${outputBase64}`,
+      imageUrl: outputResult,
+      integrationUsed: "asi-one",
     });
 
   } catch (err: any) {
     console.error("Face-swap API Error:", err);
-    res.status(500).json({ error: err.message || "An unexpected error occurred during portrait generation." });
+    res.status(500).json({ error: err.message || "An unexpected error occurred during ASI One portrait generation. Ensure your ASI_ONE_API_KEY is valid." });
+  }
+});
+
+// Dynamic customized agent synthesis endpoint using ASI:One edit image API
+app.post("/api/agent-customize", async (req: express.Request, res: express.Response) => {
+  try {
+    const { userImageBase64, userMimeType, customStylePrompt } = req.body;
+
+    if (!userImageBase64) {
+      return res.status(400).json({ error: "Please upload your face photo first." });
+    }
+
+    if (!customStylePrompt || !customStylePrompt.trim()) {
+      return res.status(400).json({ error: "Please describe the changes or style you want the ASI Agent to apply." });
+    }
+
+    if (!process.env.ASI_ONE_API_KEY) {
+      return res.status(400).json({ error: "ASI_ONE_API_KEY is missing. Please configure it in the Secrets panel." });
+    }
+
+    const prompt = `Customize high-fidelity portrait using these exact instructions: ${customStylePrompt}`;
+    const outputResult = await callAsiOneImageEdit(userImageBase64, prompt);
+    return res.json({
+      success: true,
+      imageUrl: outputResult,
+      integrationUsed: "asi-one",
+    });
+
+  } catch (err: any) {
+    console.error("Agent Customize API Error:", err);
+    res.status(500).json({ error: err.message || "An unexpected error occurred during custom ASI One agent synthesis. Ensure your ASI_ONE_API_KEY is valid." });
   }
 });
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, LogOut, Key, Plus, Sparkles, Sliders } from "lucide-react";
+import { User, LogOut, Key, Plus, Sparkles, Sliders, Grid } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { User as FirebaseUser } from "firebase/auth";
 
@@ -13,6 +13,8 @@ interface NavbarProps {
   activeCategory: string;
   setActiveCategory: (cat: string) => void;
   categories: string[];
+  activeView: "gallery" | "agent-lab";
+  setActiveView: (view: "gallery" | "agent-lab") => void;
 }
 
 export default function Navbar({
@@ -25,6 +27,8 @@ export default function Navbar({
   activeCategory,
   setActiveCategory,
   categories,
+  activeView,
+  setActiveView,
 }: NavbarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -36,7 +40,9 @@ export default function Navbar({
         <motion.div 
           initial={{ opacity: 0, x: -15 }}
           animate={{ opacity: 1, x: 0 }}
-          className="flex items-center space-x-3.5"
+          className="flex items-center space-x-3.5 shrink-0"
+          onClick={() => setActiveView("gallery")}
+          style={{ cursor: "pointer" }}
         >
           <div className="w-9 h-9 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
             <span className="text-white font-heading font-black italic text-sm tracking-tighter">PS</span>
@@ -50,6 +56,32 @@ export default function Navbar({
             </span>
           </div>
         </motion.div>
+
+        {/* Navigation Switch - Segmented Switch tab container */}
+        <div className="hidden border border-white/10 bg-white/5 rounded-full p-1 sm:flex space-x-1 shrink-0 mx-4">
+          <button
+            onClick={() => setActiveView("gallery")}
+            className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-wide transition-all cursor-pointer flex items-center space-x-1.5 ${
+              activeView === "gallery"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/10"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            <Grid className="h-3.5 w-3.5" />
+            <span>Style Gallery</span>
+          </button>
+          <button
+            onClick={() => setActiveView("agent-lab")}
+            className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-wide transition-all cursor-pointer flex items-center space-x-1.5 ${
+              activeView === "agent-lab"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/10"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
+            <span>ASI Agent Lab</span>
+          </button>
+        </div>
 
         {/* Central Search Query Input */}
         <div className="hidden max-w-md flex-1 px-4 md:block">
@@ -167,7 +199,31 @@ export default function Navbar({
       </div>
 
       {/* Mobile Search/Filter Row */}
-      <div className="mx-auto flex max-w-7xl flex-col px-4 pb-3 md:hidden">
+      <div className="mx-auto flex max-w-7xl flex-col px-4 pb-3 md:hidden space-y-2">
+        <div className="grid grid-cols-2 gap-2 sm:hidden">
+          <button
+            onClick={() => setActiveView("gallery")}
+            className={`py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 ${
+              activeView === "gallery"
+                ? "bg-indigo-600 border border-indigo-600 text-white"
+                : "bg-white/5 border border-white/5 text-zinc-400"
+            }`}
+          >
+            <Grid className="h-3 w-3" />
+            <span>Style Gallery</span>
+          </button>
+          <button
+            onClick={() => setActiveView("agent-lab")}
+            className={`py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 ${
+              activeView === "agent-lab"
+                ? "bg-indigo-600 border border-indigo-600 text-white"
+                : "bg-white/5 border border-white/5 text-zinc-400"
+            }`}
+          >
+            <Sparkles className="h-3 w-3 text-indigo-300" />
+            <span>ASI Agent Lab</span>
+          </button>
+        </div>
         <div className="relative mt-1">
           <input
             type="text"

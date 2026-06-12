@@ -31,6 +31,7 @@ import ImageCard from "./components/ImageCard";
 import DetailModal from "./components/DetailModal";
 import AuthModal from "./components/AuthModal";
 import AddCustomPromptModal from "./components/AddCustomPromptModal";
+import AgentLab from "./components/AgentLab";
 
 import { auth, db, handleFirestoreError, OperationType } from "./firebase";
 import { MOCK_GALLERY_ITEMS, GALLERY_CATEGORIES, shuffleGalleryItems } from "./data";
@@ -60,6 +61,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [onlyShowBookmarked, setOnlyShowBookmarked] = useState(false);
+  const [activeView, setActiveView] = useState<"gallery" | "agent-lab">("gallery");
   
   // Firestore integrated collections state
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
@@ -326,132 +328,173 @@ export default function App() {
         activeCategory={activeCategory}
         setActiveCategory={setActiveCategory}
         categories={GALLERY_CATEGORIES}
+        activeView={activeView}
+        setActiveView={setActiveView}
       />
 
       {/* Interactive Main Sections */}
       <main id="main-content" className="flex-grow mx-auto max-w-7xl w-full px-4 sm:px-6 md:px-8 pt-8">
         
-        {/* Dynamic Hero banner styled in high-contrast cinematic negative space */}
-        <section id="hero-banner" className="relative overflow-hidden rounded-[40px] border border-white/10 bg-[#09090b]/80 backdrop-blur-3xl p-8 sm:p-12 md:p-16 mb-12 text-center shadow-2xl">
-          <div className="absolute inset-0 bg-radial-gradient from-indigo-500/5 via-transparent to-transparent pointer-events-none" />
-          
+        {activeView === "agent-lab" ? (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="relative z-10 max-w-2xl mx-auto"
+            transition={{ duration: 0.4 }}
+            className="py-4"
           >
-            {/* Visual badge alert */}
-            <div className="inline-flex items-center space-x-1.5 px-3.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-mono text-[9px] uppercase tracking-widest mb-6 font-semibold">
-              <Zap className="h-2.5 w-2.5 text-indigo-400" />
-              <span>Face Swapping Unleashed</span>
-            </div>
-
-            <h1 className="font-heading text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-4 leading-[1.12]">
-              Stunning Portraits.<br />
-              <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-300 bg-clip-text text-transparent">
-                Synthesized Instantly.
-              </span>
-            </h1>
-
-            <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed mb-8 max-w-lg mx-auto font-medium">
-              Explore professional cinematic templates, bookmark your favorites, and instantly fuse them with your portrait photo using our high-fidelity face-swap generator.
-            </p>
-
-            {/* Quick dashboard statistics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-md mx-auto p-4 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md">
-              <div className="flex flex-col items-center justify-center p-2.5">
-                <span className="text-lg font-extrabold text-white font-heading">{MOCK_GALLERY_ITEMS.length}</span>
-                <span className="text-[8px] font-mono uppercase tracking-widest text-zinc-500 mt-1">Ref Presets</span>
-              </div>
-              <div className="flex flex-col items-center justify-center p-2.5 border-l border-white/5">
-                <span className="text-lg font-extrabold text-white font-heading">{customPrompts.length}</span>
-                <span className="text-[8px] font-mono uppercase tracking-widest text-zinc-500 mt-1">My Recipes</span>
-              </div>
-              <div className="flex flex-col items-center justify-center p-2.5 border-l border-white/5">
-                <span className="text-lg font-extrabold text-white font-heading">
-                  {Object.keys(bookmarks).length}
-                </span>
-                <span className="text-[8px] font-mono uppercase tracking-widest text-zinc-500 mt-1">Bookmarks</span>
-              </div>
-              <div className="flex flex-col items-center justify-center p-2.5 border-l border-white/5">
-                <span className="text-indigo-400 font-mono text-[10px] font-bold shrink-0">ONLINE</span>
-                <span className="text-[8px] font-mono uppercase tracking-widest text-zinc-500 mt-1">Sync state</span>
-              </div>
-            </div>
+            <AgentLab 
+              user={user} 
+              onOpenAuth={(msg) => {
+                setAuthGatingMessage(msg);
+                setAuthModalOpen(true);
+              }}
+              showToast={showToast}
+            />
           </motion.div>
-        </section>
-
-        {/* Categories selector track & Filter tabs bar */}
-        <section id="filter-controls" className="mb-8 flex flex-col sm:flex-row space-y-4 sm:space-y-0 items-start sm:items-center justify-between border-b border-white/5 pb-5">
-          
-          {/* Categories */}
-          <div className="flex flex-wrap gap-1.5 max-w-full overflow-x-auto select-scrollbar py-1">
-            {GALLERY_CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`rounded-xl px-4 py-2 text-xs font-bold tracking-wide transition-all cursor-pointer ${
-                  activeCategory === cat
-                    ? "bg-indigo-600 font-bold text-white shadow-lg shadow-indigo-500/20"
-                    : "bg-white/5 border border-white/5 text-zinc-400 hover:bg-white/10 hover:text-white"
-                }`}
+        ) : (
+          <>
+            {/* Dynamic Hero banner styled in high-contrast cinematic negative space */}
+            <section id="hero-banner" className="relative overflow-hidden rounded-[40px] border border-white/10 bg-[#09090b]/80 backdrop-blur-3xl p-8 sm:p-12 md:p-16 mb-12 text-center shadow-2xl">
+              <div className="absolute inset-0 bg-radial-gradient from-indigo-500/5 via-transparent to-transparent pointer-events-none" />
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className="relative z-10 max-w-2xl mx-auto"
               >
-                {cat}
-              </button>
-            ))}
-          </div>
+                {/* Visual badge alert */}
+                <div className="inline-flex items-center space-x-1.5 px-3.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-mono text-[9px] uppercase tracking-widest mb-6 font-semibold">
+                  <Zap className="h-2.5 w-2.5 text-indigo-400" />
+                  <span>Face Swapping Unleashed</span>
+                </div>
 
-          {/* Bookmarks toggle filter and count details */}
-          <div className="flex items-center space-x-2 shrink-0">
-            <button
-              onClick={() => setOnlyShowBookmarked(!onlyShowBookmarked)}
-              className={`flex items-center space-x-1.5 rounded-xl px-4 py-2 text-xs font-bold tracking-wide border transition-all cursor-pointer ${
-                onlyShowBookmarked
-                  ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400"
-                  : "bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              <Bookmark className="h-3.5 w-3.5 text-indigo-400" />
-              <span>Show Bookmarked ({Object.keys(bookmarks).length})</span>
-            </button>
-          </div>
+                <h1 className="font-heading text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-4 leading-[1.12]">
+                  Stunning Portraits.<br />
+                  <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-300 bg-clip-text text-transparent">
+                    Synthesized Instantly.
+                  </span>
+                </h1>
 
-        </section>
+                <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed mb-8 max-w-lg mx-auto font-medium">
+                  Explore professional cinematic templates, bookmark your favorites, and instantly fuse them with your portrait photo using our high-fidelity face-swap generator.
+                </p>
 
-        {/* Gallery Grid display containing cards */}
-        <section id="gallery-display-grid">
-          {filteredGalleryItems.length === 0 ? (
-            <div className="py-24 text-center">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/5 mb-4 border border-white/10">
-                <FolderLock className="h-6 w-6 text-zinc-500" />
-              </div>
-              <h2 className="text-lg font-bold text-zinc-300 font-heading uppercase">No Prompt Found</h2>
-              <p className="text-xs text-zinc-500 max-w-xs mx-auto mt-1 leading-relaxed">
-                We couldn't locate any matching layouts in our directory. Make sure to try another filter or publish your own recipe!
-              </p>
-            </div>
-          ) : (
-            // Responsive Multi-layout grid incorporating masonry widths
-            <motion.div 
-              layout
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-            >
-              <AnimatePresence mode="popLayout">
-                {visibleGalleryItems.map((item) => (
-                  <ImageCard
-                    key={`card-${item.id}`}
-                    item={item}
-                    isBookmarked={!!bookmarks[item.id]}
-                    isLoggedIn={!!user}
-                    onSelect={() => handleSelectItem(item)}
-                    onBookmark={(e) => handleToggleBookmark(e, item)}
-                  />
+                {/* Launch customizer action trigger button */}
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 mb-8">
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => setActiveView("agent-lab")}
+                    className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-500 text-xs font-bold uppercase tracking-wider text-white shadow-xl shadow-indigo-500/20 hover:from-indigo-400 hover:to-purple-400 flex items-center justify-center space-x-2.5 transition-all cursor-pointer"
+                  >
+                    <Sparkles className="h-4 w-4 text-white animate-pulse" />
+                    <span>Customize with ASI Agent</span>
+                  </motion.button>
+                  <a
+                    href="#filter-controls"
+                    className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-xs font-semibold text-zinc-300 hover:text-white flex items-center justify-center space-x-2 transition-all"
+                  >
+                    <span>Browse Gallery Templates</span>
+                  </a>
+                </div>
+
+                {/* Quick dashboard statistics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-md mx-auto p-4 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md">
+                  <div className="flex flex-col items-center justify-center p-2.5">
+                    <span className="text-lg font-extrabold text-white font-heading">{MOCK_GALLERY_ITEMS.length}</span>
+                    <span className="text-[8px] font-mono uppercase tracking-widest text-zinc-500 mt-1">Ref Presets</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center p-2.5 border-l border-white/5">
+                    <span className="text-lg font-extrabold text-white font-heading">{customPrompts.length}</span>
+                    <span className="text-[8px] font-mono uppercase tracking-widest text-zinc-500 mt-1">My Recipes</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center p-2.5 border-l border-white/5">
+                    <span className="text-lg font-extrabold text-white font-heading">
+                      {Object.keys(bookmarks).length}
+                    </span>
+                    <span className="text-[8px] font-mono uppercase tracking-widest text-zinc-500 mt-1">Bookmarks</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center p-2.5 border-l border-white/5">
+                    <span className="text-indigo-400 font-mono text-[10px] font-bold shrink-0">ONLINE</span>
+                    <span className="text-[8px] font-mono uppercase tracking-widest text-zinc-500 mt-1">Sync state</span>
+                  </div>
+                </div>
+              </motion.div>
+            </section>
+
+            {/* Categories selector track & Filter tabs bar */}
+            <section id="filter-controls" className="mb-8 flex flex-col sm:flex-row space-y-4 sm:space-y-0 items-start sm:items-center justify-between border-b border-white/5 pb-5">
+              
+              {/* Categories */}
+              <div className="flex flex-wrap gap-1.5 max-w-full overflow-x-auto select-scrollbar py-1">
+                {GALLERY_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(cat)}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold tracking-wide transition-all cursor-pointer ${
+                      activeCategory === cat
+                        ? "bg-indigo-600 font-bold text-white shadow-lg shadow-indigo-500/20"
+                        : "bg-white/5 border border-white/5 text-zinc-400 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    {cat}
+                  </button>
                 ))}
-              </AnimatePresence>
-            </motion.div>
-          )}
-        </section>
+              </div>
+
+              {/* Bookmarks toggle filter and count details */}
+              <div className="flex items-center space-x-2 shrink-0">
+                <button
+                  onClick={() => setOnlyShowBookmarked(!onlyShowBookmarked)}
+                  className={`flex items-center space-x-1.5 rounded-xl px-4 py-2 text-xs font-bold tracking-wide border transition-all cursor-pointer ${
+                    onlyShowBookmarked
+                      ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400"
+                      : "bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <Bookmark className="h-3.5 w-3.5 text-indigo-400" />
+                  <span>Show Bookmarked ({Object.keys(bookmarks).length})</span>
+                </button>
+              </div>
+
+            </section>
+
+            {/* Gallery Grid display containing cards */}
+            <section id="gallery-display-grid">
+              {filteredGalleryItems.length === 0 ? (
+                <div className="py-24 text-center">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/5 mb-4 border border-white/10">
+                    <FolderLock className="h-6 w-6 text-zinc-500" />
+                  </div>
+                  <h2 className="text-lg font-bold text-zinc-300 font-heading uppercase">No Prompt Found</h2>
+                  <p className="text-xs text-zinc-500 max-w-xs mx-auto mt-1 leading-relaxed">
+                    We couldn't locate any matching layouts in our directory. Make sure to try another filter or publish your own recipe!
+                  </p>
+                </div>
+              ) : (
+                // Responsive Multi-layout grid incorporating masonry widths
+                <motion.div 
+                  layout
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+                >
+                  <AnimatePresence mode="popLayout">
+                    {visibleGalleryItems.map((item) => (
+                      <ImageCard
+                        key={`card-${item.id}`}
+                        item={item}
+                        isBookmarked={!!bookmarks[item.id]}
+                        isLoggedIn={!!user}
+                        onSelect={() => handleSelectItem(item)}
+                        onBookmark={(e) => handleToggleBookmark(e, item)}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
+              )}
+            </section>
+          </>
+        )}
 
       </main>
 
